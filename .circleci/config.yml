@@ -39,9 +39,6 @@ jobs:
     docker:
       - image: cimg/node:13.8.0
     steps:
-      docker:
-      - image: cimg/node:13.8.0
-    steps:
       - checkout
       - restore_cache:
           keys: [frontend-deps]
@@ -65,9 +62,6 @@ jobs:
             cd backend
             npm install
             npm test
-      - save_cache:
-          paths: [backend/node_modules]
-          key: backend-deps
 
 workflows:
   default:
