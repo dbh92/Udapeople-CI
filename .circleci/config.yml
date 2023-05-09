@@ -35,7 +35,6 @@ commands:
             sudo n 13.8.0
             sudo npm install -g typescript
 
-
   destroy-environment:
       description: Destroy back-end and front-end cloudformation stacks given a workflow ID.
       parameters:
@@ -49,7 +48,7 @@ commands:
             command: |
               aws cloudformation delete-stack --stack-name udapeople-backend-<< parameters.Workflow_ID >>
               aws cloudformation delete-stack --stack-name udapeople-frontend-<< parameters.Workflow_ID >>
-              aws s3 rm s3://udapeople-<<parameters.Workflow_ID>> --recursive
+              exit 0
 
 jobs:
   build-frontend:
