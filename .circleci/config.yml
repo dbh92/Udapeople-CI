@@ -147,9 +147,10 @@ jobs:
 
   deploy-infrastructure:
     docker:
-      # Docker image here that supports AWS CLI
+      - image: amazon/aws-cli
     steps:
-      # Checkout code from git
+      - checkout
+      - install_awscli
       - run:
           name: Ensure back-end infrastructure exists
           command: |
@@ -177,7 +178,7 @@ jobs:
              --output text )
             echo $BACKEND_PUBLIC_IP >> .circleci/ansible/inventory.txt
             cat .circleci/ansible/inventory.txt
-            
+
       - persist_to_workspace:
           root: ~/
           paths:
