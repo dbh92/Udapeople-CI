@@ -1,0 +1,11 @@
+---
+- name: "Add Node.js from Nodesource"
+  become: true
+  shell: |
+    sudo npm install --global n
+    sudo n 13.8.0
+
+- name: "Install PM2 Globally"
+  npm:
+    name: pm2
+    global: yes

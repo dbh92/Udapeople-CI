@@ -1,23 +1,22 @@
 version: 2.1
 
 commands:
-
   install_awscli:
-    description : Install AWSCLI 
-    steps :
-      - run :
-          name : Install AWSCLI 
-          command : |
+    description: Install AWSCLI
+    steps:
+      - run:
+          name: Install AWSCLI
+          command: |
             curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
             unzip awscliv2.zip
             sudo ./aws/install
 
-  install_ansible :
-    description : Install Ansible 
-    steps :
-      - run :
-          name : Install Ansible 
-          command : |
+  install_ansible:
+    description: Install Ansible
+    steps:
+      - run:
+          name: Install Ansible
+          command: |
             sudo apt update                                     
             sudo apt install software-properties-common
             sudo add-apt-repository --yes --update ppa:ansible/ansible
@@ -36,19 +35,19 @@ commands:
             sudo npm install -g typescript
 
   destroy-environment:
-      description: Destroy back-end and front-end cloudformation stacks given a workflow ID.
-      parameters:
-        Workflow_ID:
-          type: string
-          default: ${CIRCLE_WORKFLOW_ID:0:7}
-      steps:
-        - run:
-            name: Destroy environments
-            when: on_fail
-            command: |
-              aws cloudformation delete-stack --stack-name udapeople-backend-<< parameters.Workflow_ID >>
-              aws cloudformation delete-stack --stack-name udapeople-frontend-<< parameters.Workflow_ID >>
-              exit 0
+    description: Destroy back-end and front-end cloudformation stacks given a workflow ID.
+    parameters:
+      Workflow_ID:
+        type: string
+        default: ${CIRCLE_WORKFLOW_ID:0:7}
+    steps:
+      - run:
+          name: Destroy environments
+          when: on_fail
+          command: |
+            aws cloudformation delete-stack --stack-name udapeople-backend-<< parameters.Workflow_ID >>
+            aws cloudformation delete-stack --stack-name udapeople-frontend-<< parameters.Workflow_ID >>
+            exit 0
 
 jobs:
   build-frontend:
@@ -63,7 +62,7 @@ jobs:
           command: |
             cd frontend
             npm install
-            npm run build  
+            npm run build
       - save_cache:
           paths: [frontend/node_modules]
           key: frontend-deps
@@ -97,8 +96,8 @@ jobs:
           command: |
             cd frontend
             npm install
-            npm test  
-                
+            npm test
+
   test-backend:
     docker:
       - image: cimg/node:13.8.0
@@ -127,7 +126,7 @@ jobs:
             npm install
             npm audit fix --force --audit-level=critical
             npm audit fix --force --audit-level=critical
-            npm audit --audit-level=critical  
+            npm audit --audit-level=critical
 
   scan-backend:
     docker:
@@ -143,7 +142,7 @@ jobs:
             npm install
             npm audit fix --force --audit-level=critical
             npm audit fix --force --audit-level=critical
-            npm audit --audit-level=critical           
+            npm audit --audit-level=critical
 
   deploy-infrastructure:
     docker:
@@ -158,7 +157,7 @@ jobs:
               --template-file .circleci/files/backend.yml \
               --tags project=udapeople \
               --stack-name "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" \
-              --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}"  
+              --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}"
 
       - run:
           name: Ensure front-end infrastructure exist
@@ -167,7 +166,7 @@ jobs:
               --template-file .circleci/files/frontend.yml \
               --tags project=udapeople \
               --stack-name "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}" \
-              --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}"  
+              --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}"
 
       - run:
           name: Add back-end ip to ansible inventory
@@ -186,6 +185,46 @@ jobs:
 
       - destroy-environment
 
+  configure-infrastructure:
+    docker:
+      - image: python:alpine3.16
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - "76:be:30:d4:4f:06:ab:aa:d5:70:7c:5d:c6:00:74:bb"
+      - attach_workspace:
+          at: ~/
+
+      - run:
+          name: Install dependencies
+          command: |
+            apk add --update ansible openssh-client
+            apk add --update tar gzip ansible nodejs npm curl
+            pip install awscli
+
+      - run:
+          name: Configure server using Ansible
+          command: |
+
+            echo ENVIRONMENT=production > "backend/.env"
+            echo TYPEORM_CONNECTION=postgres >> "backend/.env"
+            echo TYPEORM_ENTITIES=./src/modules/domain/**/*.entity.ts >> "backend/.env"
+            echo TYPEORM_MIGRATIONS=./src/migrations/*.ts >> "backend/.env"
+            echo TYPEORM_MIGRATIONS_DIR=./src/migrations >> "backend/.env"
+            echo NODE_ENV=production >> "backend/.env"
+            echo TYPEORM_HOST=$TYPEORM_HOST >> "backend/.env"
+            echo TYPEORM_PORT=$TYPEORM_PORT >> "backend/.env"
+            echo TYPEORM_USERNAME=$TYPEORM_USERNAME >> "backend/.env"
+            echo TYPEORM_PASSWORD=$TYPEORM_PASSWORD >> "backend/.env"
+            echo TYPEORM_DATABASE=$TYPEORM_DATABASE >> "backend/.env"
+            cat backend/.env
+
+            cd .circleci/ansible
+            cat inventory.txt
+            ansible-playbook -i inventory.txt configure-server.yml
+      - destroy-environment
+
 workflows:
   default:
     jobs:
@@ -198,9 +237,11 @@ workflows:
       - scan-backend:
           requires: [build-backend]
       - scan-frontend:
-          requires: [build-frontend]    
+          requires: [build-frontend]
       - deploy-infrastructure:
           requires: [test-frontend, test-backend, scan-frontend, scan-backend]
           filters:
             branches:
               only: [master]
+      - configure-infrastructure:
+          requires: [deploy-infrastructure]
